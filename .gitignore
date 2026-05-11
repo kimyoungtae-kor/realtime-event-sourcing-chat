@@ -1,0 +1,48 @@
+# Local-only planning notes
+planning-private/
+*.local.md
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+secrets/
+
+# Local Spring configuration that may contain credentials
+application-local.yml
+application-local.yaml
+application-secret.yml
+application-secret.yaml
+
+# Java / Spring build outputs
+.gradle/
+build/
+out/
+target/
+
+# IDE / editor files
+.idea/
+*.iml
+.vscode/
+.metadata/
+.classpath
+.project
+.settings/
+bin/
+
+# Logs and runtime files
+logs/
+*.log
+*.pid
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local Docker overrides
+docker-compose.override.yml

@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: realtime-event-sourcing-chat
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/chat_event_sourcing?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${DB_USERNAME:chat_app}
+    password: ${DB_PASSWORD:chat_app_password}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: ${SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+app:
+  event-sourcing:
+    restore-default-message-limit: ${RESTORE_DEFAULT_MESSAGE_LIMIT:100}
+    snapshot-event-interval: ${SNAPSHOT_EVENT_INTERVAL:100}

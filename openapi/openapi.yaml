@@ -1,0 +1,160 @@
+openapi: 3.1.0
+info:
+  title: Realtime Event Sourcing Chat API
+  version: 0.1.0
+  description: REST API draft for session events, idempotent event collection, and timeline restore.
+servers:
+  - url: http://localhost:8080
+paths:
+  /sessions:
+    post:
+      summary: Create a chat session
+      responses:
+        "201":
+          description: Created
+    get:
+      summary: List sessions
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: participantId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /sessions/{sessionId}/join:
+    post:
+      summary: Join a session
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JoinRequest"
+      responses:
+        "200":
+          description: Joined
+  /sessions/{sessionId}/leave:
+    post:
+      summary: Leave a session
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Left
+  /sessions/{sessionId}/events:
+    post:
+      summary: Append an idempotent event
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventAppendRequest"
+      responses:
+        "201":
+          description: Event appended
+        "200":
+          description: Duplicate request, existing event returned
+    get:
+      summary: Query events for debugging or reconnect replay
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - name: afterSequence
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: OK
+  /sessions/{sessionId}/timeline:
+    get:
+      summary: Restore session state at a point in time
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - name: at
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Restored timeline state
+  /sessions/{sessionId}/end:
+    post:
+      summary: End a session
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Ended
+  /sessions/{sessionId}/snapshots:
+    post:
+      summary: Create a snapshot for optimized restore
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "201":
+          description: Snapshot created
+components:
+  parameters:
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    JoinRequest:
+      type: object
+      required:
+        - userId
+        - displayName
+        - clientEventId
+      properties:
+        userId:
+          type: string
+        displayName:
+          type: string
+        clientEventId:
+          type: string
+    EventAppendRequest:
+      type: object
+      required:
+        - type
+        - senderId
+        - clientEventId
+        - payload
+      properties:
+        type:
+          type: string
+          enum:
+            - MESSAGE_SENT
+            - DISCONNECTED
+            - RECONNECTED
+        senderId:
+          type: string
+        clientEventId:
+          type: string
+        clientSentAt:
+          type: string
+          format: date-time
+        payload:
+          type: object
+          additionalProperties: true
