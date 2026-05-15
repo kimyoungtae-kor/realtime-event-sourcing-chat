@@ -20,9 +20,15 @@ unique key uk_events_idempotency (session_id, sender_id, client_event_id)
 
 canonical order는 `server_sequence`다.
 
-- 이벤트 저장 시 세션 row를 잠그고 `next_sequence`를 증가시킨다.
+- 이벤트 저장 시 `sessions` row를 pessimistic lock으로 잠그고 `next_sequence`를 증가시킨다.
 - replay, resume, timeline 조회는 모두 `server_sequence asc`로 처리한다.
 - `client_sent_at`은 디버깅과 UX 보조 정보이며 정합성 기준으로 사용하지 않는다.
+
+이 선택의 트레이드오프:
+
+- 장점: 서버 기준으로 deterministic replay가 가능하고, 클라이언트 시계 오차에 영향을 받지 않는다.
+- 단점: 사용자가 실제로 입력한 순서와 서버 수신 순서가 다를 수 있다.
+- 보완: `client_sent_at`은 저장하되 canonical state에는 사용하지 않는다.
 
 ## Replay
 
@@ -33,6 +39,20 @@ MVP replay 절차:
 3. 빈 `TimelineState`에 이벤트를 순서대로 적용
 4. participants, messages, session status를 반환
 
+현재 구현 기준:
+
+- 기준 시점 필터: `server_received_at <= at`
+- 참여자 상태: `JOINED`, `LEFT`, `DISCONNECTED`, `RECONNECTED` 이벤트로 계산
+- 메시지 목록: `MESSAGE_SENT` 이벤트의 `payload.content`를 반영
+- 메시지 정렬: `server_sequence asc`
+- 최근 N개 제한: `messageLimit` query parameter 사용
+
+시간 기준:
+
+- DB 저장과 replay 비교는 UTC 기준으로 처리한다.
+- API 응답은 사람이 확인하기 쉽도록 `Asia/Seoul` offset으로 반환한다.
+- 클라이언트는 `at` 값을 UTC `Z` 또는 명시적 offset이 포함된 ISO-8601 형식으로 전달한다.
+
 ## Snapshot Extension
 
 최적화 단계에서는 `session_snapshots`에서 기준 시점 이전 최신 snapshot을 찾고, snapshot 이후 이벤트만 replay한다.
@@ -41,3 +61,5 @@ Snapshot 주기 초안:
 
 - 이벤트 100개마다 자동 생성
 - 또는 세션 종료 시 최종 snapshot 생성
+
+현재 snapshot table은 준비되어 있으나 API 구현은 다음 단계의 가산점 항목으로 남겨둔다.

@@ -1,34 +1,67 @@
 openapi: 3.1.0
 info:
   title: Realtime Event Sourcing Chat API
-  version: 0.1.0
-  description: REST API draft for session events, idempotent event collection, and timeline restore.
+  version: 0.2.0
+  description: REST API for session lifecycle, idempotent event collection, event query, and timeline restore.
 servers:
   - url: http://localhost:8080
+tags:
+  - name: Sessions
+  - name: Events
+  - name: Timeline
 paths:
   /sessions:
     post:
+      tags: [Sessions]
       summary: Create a chat session
       responses:
         "201":
-          description: Created
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResponse"
     get:
+      tags: [Sessions]
       summary: List sessions
       parameters:
         - name: status
           in: query
           schema:
-            type: string
+            $ref: "#/components/schemas/SessionStatus"
         - name: participantId
           in: query
           schema:
             type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 200
       responses:
         "200":
-          description: OK
+          description: Session list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionListResponse"
   /sessions/{sessionId}/join:
     post:
+      tags: [Sessions]
       summary: Join a session
+      description: Appends a JOINED event and updates the current participant projection.
       parameters:
         - $ref: "#/components/parameters/SessionId"
       requestBody:
@@ -38,19 +71,49 @@ paths:
             schema:
               $ref: "#/components/schemas/JoinRequest"
       responses:
+        "201":
+          description: JOINED event appended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventResponse"
         "200":
-          description: Joined
+          description: Duplicate clientEventId, existing event returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventResponse"
   /sessions/{sessionId}/leave:
     post:
+      tags: [Sessions]
       summary: Leave a session
+      description: Appends a LEFT event and marks the participant as LEFT.
       parameters:
         - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeaveRequest"
       responses:
+        "201":
+          description: LEFT event appended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventResponse"
         "200":
-          description: Left
+          description: Duplicate clientEventId, existing event returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventResponse"
   /sessions/{sessionId}/events:
     post:
-      summary: Append an idempotent event
+      tags: [Events]
+      summary: Append an idempotent message or presence event
+      description: Public event append endpoint. JOINED, LEFT, SESSION_CREATED, and SESSION_ENDED use dedicated endpoints.
       parameters:
         - $ref: "#/components/parameters/SessionId"
       requestBody:
@@ -62,28 +125,56 @@ paths:
       responses:
         "201":
           description: Event appended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventResponse"
         "200":
-          description: Duplicate request, existing event returned
+          description: Duplicate clientEventId, existing event returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventResponse"
     get:
+      tags: [Events]
       summary: Query events for debugging or reconnect replay
       parameters:
         - $ref: "#/components/parameters/SessionId"
         - name: afterSequence
           in: query
+          description: Return events with serverSequence greater than this value.
           schema:
             type: integer
             format: int64
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
         - name: limit
           in: query
           schema:
             type: integer
             default: 100
+            minimum: 1
+            maximum: 500
       responses:
         "200":
-          description: OK
+          description: Event list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventListResponse"
   /sessions/{sessionId}/timeline:
     get:
+      tags: [Timeline]
       summary: Restore session state at a point in time
+      description: Replays events ordered by serverSequence where serverReceivedAt is less than or equal to `at`.
       parameters:
         - $ref: "#/components/parameters/SessionId"
         - name: at
@@ -92,25 +183,56 @@ paths:
           schema:
             type: string
             format: date-time
+        - name: messageLimit
+          in: query
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 500
       responses:
         "200":
           description: Restored timeline state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TimelineResponse"
   /sessions/{sessionId}/end:
     post:
+      tags: [Sessions]
       summary: End a session
+      description: Appends a SESSION_ENDED event and marks the session as COMPLETED.
       parameters:
         - $ref: "#/components/parameters/SessionId"
-      responses:
-        "200":
-          description: Ended
-  /sessions/{sessionId}/snapshots:
-    post:
-      summary: Create a snapshot for optimized restore
-      parameters:
-        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EndRequest"
       responses:
         "201":
-          description: Snapshot created
+          description: SESSION_ENDED event appended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventResponse"
+        "200":
+          description: Duplicate clientEventId, existing event returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventResponse"
+  /sessions/{sessionId}/snapshots:
+    post:
+      tags: [Timeline]
+      summary: Create a snapshot for optimized restore
+      description: Planned extension. Snapshot table and schema are already prepared.
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "501":
+          description: Not implemented yet
 components:
   parameters:
     SessionId:
@@ -121,12 +243,62 @@ components:
         type: string
         format: uuid
   schemas:
+    SessionStatus:
+      type: string
+      enum: [ACTIVE, INTERRUPTED, COMPLETED]
+    ParticipantState:
+      type: string
+      enum: [ONLINE, OFFLINE, LEFT]
+    EventType:
+      type: string
+      enum:
+        - SESSION_CREATED
+        - JOINED
+        - LEFT
+        - MESSAGE_SENT
+        - DISCONNECTED
+        - RECONNECTED
+        - SESSION_ENDED
+    PublicAppendEventType:
+      type: string
+      enum:
+        - MESSAGE_SENT
+        - DISCONNECTED
+        - RECONNECTED
+    SessionResponse:
+      type: object
+      required: [sessionId, status, nextSequence, createdAt, updatedAt]
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/SessionStatus"
+        nextSequence:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+    SessionListResponse:
+      type: object
+      required: [sessions]
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SessionResponse"
     JoinRequest:
       type: object
-      required:
-        - userId
-        - displayName
-        - clientEventId
+      required: [userId, displayName, clientEventId]
       properties:
         userId:
           type: string
@@ -134,20 +306,37 @@ components:
           type: string
         clientEventId:
           type: string
+        clientSentAt:
+          type: string
+          format: date-time
+    LeaveRequest:
+      type: object
+      required: [userId, clientEventId]
+      properties:
+        userId:
+          type: string
+        clientEventId:
+          type: string
+        clientSentAt:
+          type: string
+          format: date-time
+    EndRequest:
+      type: object
+      required: [endedBy, clientEventId]
+      properties:
+        endedBy:
+          type: string
+        clientEventId:
+          type: string
+        clientSentAt:
+          type: string
+          format: date-time
     EventAppendRequest:
       type: object
-      required:
-        - type
-        - senderId
-        - clientEventId
-        - payload
+      required: [type, senderId, clientEventId, payload]
       properties:
         type:
-          type: string
-          enum:
-            - MESSAGE_SENT
-            - DISCONNECTED
-            - RECONNECTED
+          $ref: "#/components/schemas/PublicAppendEventType"
         senderId:
           type: string
         clientEventId:
@@ -158,3 +347,132 @@ components:
         payload:
           type: object
           additionalProperties: true
+          examples:
+            - messageId: "msg-001"
+              content: "hello"
+    EventResponse:
+      type: object
+      required:
+        - eventId
+        - sessionId
+        - serverSequence
+        - type
+        - senderId
+        - clientEventId
+        - serverReceivedAt
+        - payload
+        - duplicate
+      properties:
+        eventId:
+          type: integer
+          format: int64
+        sessionId:
+          type: string
+          format: uuid
+        serverSequence:
+          type: integer
+          format: int64
+        type:
+          $ref: "#/components/schemas/EventType"
+        senderId:
+          type: string
+        clientEventId:
+          type: string
+        clientSentAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        serverReceivedAt:
+          type: string
+          format: date-time
+        payload:
+          type: object
+          additionalProperties: true
+        duplicate:
+          type: boolean
+    EventListResponse:
+      type: object
+      required: [events]
+      properties:
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventResponse"
+    TimelineParticipant:
+      type: object
+      required: [userId, displayName, state, joinedAt]
+      properties:
+        userId:
+          type: string
+        displayName:
+          type: string
+        state:
+          $ref: "#/components/schemas/ParticipantState"
+        joinedAt:
+          type: string
+          format: date-time
+        leftAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        lastSeenAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+    TimelineMessage:
+      type: object
+      required: [messageId, senderId, content, serverSequence, createdAt, status]
+      properties:
+        messageId:
+          type: string
+        senderId:
+          type: string
+        content:
+          type: string
+        serverSequence:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [SENT]
+    TimelineResponse:
+      type: object
+      required: [sessionId, status, at, participants, messages, appliedEventCount, restoredFromSnapshot]
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/SessionStatus"
+        at:
+          type: string
+          format: date-time
+        participants:
+          type: array
+          items:
+            $ref: "#/components/schemas/TimelineParticipant"
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/TimelineMessage"
+        appliedEventCount:
+          type: integer
+        restoredFromSnapshot:
+          type: boolean
+    ErrorResponse:
+      type: object
+      required: [code, message, timestamp]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time

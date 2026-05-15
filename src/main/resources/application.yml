@@ -2,9 +2,9 @@ spring:
   application:
     name: realtime-event-sourcing-chat
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/chat_event_sourcing?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
-    username: ${DB_USERNAME:chat_app}
-    password: ${DB_PASSWORD:chat_app_password}
+    url: ${DB_URL:jdbc:mysql://localhost:3307/resc_chat?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${DB_USERNAME:resc_app}
+    password: ${DB_PASSWORD:resc_app_password}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -16,6 +16,14 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  logging:
+  level:
+    root: info
+    org.springframework: warn
+    org.hibernate: warn
+    com.zaxxer.hikari: warn
+    org.flywaydb: info
+    com.sokind.chat: debug
 
 server:
   port: ${SERVER_PORT:8080}

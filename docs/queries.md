@@ -44,7 +44,30 @@ Potential bottleneck:
 - 클라이언트가 너무 오래 끊겨 있으면 반환 이벤트가 많아진다.
 - 서버는 page size를 제한하고, 필요하면 snapshot 기반 timeline API로 유도한다.
 
-## 3. Duplicate Detection
+## 3. Event Debug Query
+
+```sql
+select *
+from session_events
+where session_id = ?
+  and server_received_at >= ?
+  and server_received_at <= ?
+order by server_sequence asc
+limit ?;
+```
+
+Index:
+
+```sql
+key idx_events_session_received_sequence (session_id, server_received_at, server_sequence)
+```
+
+Potential bottleneck:
+
+- 장기간 범위를 조회하면 event store scan 비용이 커질 수 있다.
+- 운영에서는 기간과 limit을 강제하고, 오래된 데이터는 archive 정책을 둔다.
+
+## 4. Duplicate Detection
 
 ```sql
 select *
