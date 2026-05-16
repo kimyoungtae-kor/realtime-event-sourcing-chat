@@ -21,11 +21,11 @@
 - WebSocket publish / subscribe
 - Snapshot 생성과 snapshot 기반 restore
 - 통합 테스트
+- 로컬 부하 테스트 스크립트
 
 아직 이 문서에서 검증하지 않은 범위:
 
 - 비동기 projection worker 구현
-- 부하 테스트
 - 장애 주입 테스트
 
 ## 시간 처리
@@ -398,6 +398,7 @@ PowerShell STOMP 검증 세션:
 | WebSocket Publish / Subscribe | PASS | `ClientWebSocket`과 브라우저 테스트 페이지에서 STOMP 연결, 구독, message/presence 송수신 확인 |
 | Snapshot API | PASS | 통합 테스트에서 snapshot 생성, 중복 생성 방지, snapshot 이후 delta replay 확인 |
 | Integration Test | PASS | `.\gradlew.bat test` 성공 |
+| Load Test | PASS | 2026-05-16 로컬 실행 기준 125 requests, failed 0, p95 51.2 ms |
 
 메모:
 
@@ -412,9 +413,9 @@ PowerShell STOMP 검증 세션:
 - `DISCONNECTED` 이후 세션 상태가 `INTERRUPTED`로 바뀌는 것을 확인했다.
 - 종료된 이전 세션 `74253500-4822-4900-9521-bd5ec5750e75`에 join을 시도했을 때 `SESSION_COMPLETED`가 반환되는 것도 확인했다. 이는 완료 세션에 이벤트를 받지 않는 기대 동작이다.
 - 2026-05-16 통합 테스트에서 duplicate event, completed reject, snapshot reuse, snapshot 기반 timeline restore를 확인했다.
+- 2026-05-16 `scripts/load-test.ps1`로 session/join/message/duplicate/snapshot/timeline 흐름 125개 요청을 실행했고 실패 0건을 확인했다.
 
 ## 남은 항목
 
 - 비동기 projection worker 구현
-- 부하 테스트
 - 장애 주입 테스트

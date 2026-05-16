@@ -60,6 +60,7 @@ curl http://localhost:8080/actuator/health
 - REST API 수동 검증 기록
 - WebSocket STOMP message/presence event 수신 및 topic broadcast
 - H2 기반 통합 테스트
+- PowerShell 기반 로컬 부하 테스트 스크립트
 
 ## API Summary
 
@@ -85,6 +86,7 @@ curl http://localhost:8080/actuator/health
 - [Queries](docs/queries.md)
 - [Operations](docs/operations.md)
 - [Async Projection](docs/async-projection.md)
+- [Load Test](docs/load-test.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [WebSocket](docs/websocket.md)
 - [Manual Verification Checklist](docs/manual-test-checklist.md)
@@ -112,6 +114,12 @@ curl http://localhost:8080/actuator/health
 
 ```powershell
 .\gradlew.bat test
+```
+
+로컬 부하 테스트:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\load-test.ps1 -BaseUrl http://localhost:8080 -SessionCount 5 -MessagesPerSession 20
 ```
 
 ## Security
