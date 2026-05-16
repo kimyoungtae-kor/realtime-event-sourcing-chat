@@ -20,7 +20,36 @@ unique key uk_events_session_sequence (session_id, server_sequence)
 Potential bottleneck:
 
 - 오래된 세션에서 이벤트가 매우 많으면 full replay 비용이 커진다.
-- 최신 snapshot을 먼저 찾고 snapshot 이후 이벤트만 replay하도록 개선한다.
+- 현재 구현은 최신 snapshot을 먼저 찾고 snapshot 이후 이벤트만 replay해 full replay 비용을 줄인다.
+
+Snapshot query:
+
+```sql
+select *
+from session_snapshots
+where session_id = ?
+  and snapshot_at <= ?
+order by server_sequence desc
+limit 1;
+```
+
+Delta replay query:
+
+```sql
+select *
+from session_events
+where session_id = ?
+  and server_sequence > ?
+  and server_received_at <= ?
+order by server_sequence asc;
+```
+
+Snapshot indexes:
+
+```sql
+key idx_snapshots_session_at (session_id, snapshot_at)
+unique key uk_snapshots_session_sequence (session_id, server_sequence)
+```
 
 ## 2. Reconnect Resume
 

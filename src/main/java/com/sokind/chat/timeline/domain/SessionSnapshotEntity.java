@@ -44,4 +44,42 @@ public class SessionSnapshotEntity {
 
 	protected SessionSnapshotEntity() {
 	}
+
+	public SessionSnapshotEntity(
+		SessionEntity session,
+		long serverSequence,
+		LocalDateTime snapshotAt,
+		String stateJson,
+		LocalDateTime createdAt
+	) {
+		this.session = session;
+		this.serverSequence = serverSequence;
+		this.snapshotAt = snapshotAt;
+		this.stateJson = stateJson;
+		this.createdAt = createdAt;
+	}
+
+	public Long getId() {
+		return id;
+	}
+
+	public SessionEntity getSession() {
+		return session;
+	}
+
+	public long getServerSequence() {
+		return serverSequence;
+	}
+
+	public LocalDateTime getSnapshotAt() {
+		return snapshotAt;
+	}
+
+	public String getStateJson() {
+		return stateJson;
+	}
+
+	public LocalDateTime getCreatedAt() {
+		return createdAt;
+	}
 }

@@ -1,9 +1,11 @@
 package com.sokind.chat.common.error;
 
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
+
+import com.sokind.chat.common.time.UtcDateTimes;
 
 import jakarta.validation.ConstraintViolationException;
+import org.springframework.core.convert.ConversionFailedException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.ResponseEntity;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -57,6 +60,16 @@ public class GlobalExceptionHandler {
 			));
 	}
 
+	@ExceptionHandler(ConversionFailedException.class)
+	public ResponseEntity<ErrorResponse> handleConversionFailed(ConversionFailedException exception) {
+		return ResponseEntity.badRequest()
+			.body(new ErrorResponse(
+				"INVALID_REQUEST_PARAMETER",
+				"Invalid request parameter format",
+				now()
+			));
+	}
+
 	@ExceptionHandler(MissingServletRequestParameterException.class)
 	public ResponseEntity<ErrorResponse> handleMissingRequestParameter(MissingServletRequestParameterException exception) {
 		return ResponseEntity.badRequest()
@@ -73,6 +86,12 @@ public class GlobalExceptionHandler {
 			.body(new ErrorResponse("INVALID_REQUEST_BODY", "Request body is malformed", now()));
 	}
 
+	@ExceptionHandler(NoResourceFoundException.class)
+	public ResponseEntity<ErrorResponse> handleNoResource(NoResourceFoundException exception) {
+		return ResponseEntity.status(HttpStatus.NOT_FOUND)
+			.body(new ErrorResponse("RESOURCE_NOT_FOUND", "Resource not found", now()));
+	}
+
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ErrorResponse> handleUnexpected(Exception exception) {
 		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -80,6 +99,6 @@ public class GlobalExceptionHandler {
 	}
 
 	private OffsetDateTime now() {
-		return OffsetDateTime.now(ZoneOffset.UTC);
+		return UtcDateTimes.toOffsetDateTime(UtcDateTimes.now());
 	}
 }

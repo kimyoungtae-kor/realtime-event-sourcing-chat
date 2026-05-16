@@ -2,6 +2,7 @@ package com.sokind.chat.timeline.application;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -21,6 +22,9 @@ import com.sokind.chat.session.infrastructure.SessionRepository;
 import com.sokind.chat.timeline.api.TimelineMessageResponse;
 import com.sokind.chat.timeline.api.TimelineParticipantResponse;
 import com.sokind.chat.timeline.api.TimelineResponse;
+import com.sokind.chat.timeline.api.SnapshotResponse;
+import com.sokind.chat.timeline.domain.SessionSnapshotEntity;
+import com.sokind.chat.timeline.infrastructure.SessionSnapshotRepository;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -31,15 +35,18 @@ public class TimelineReplayService {
 
 	private final SessionRepository sessionRepository;
 	private final SessionEventRepository eventRepository;
+	private final SessionSnapshotRepository snapshotRepository;
 	private final JsonPayloadMapper jsonPayloadMapper;
 
 	public TimelineReplayService(
 		SessionRepository sessionRepository,
 		SessionEventRepository eventRepository,
+		SessionSnapshotRepository snapshotRepository,
 		JsonPayloadMapper jsonPayloadMapper
 	) {
 		this.sessionRepository = sessionRepository;
 		this.eventRepository = eventRepository;
+		this.snapshotRepository = snapshotRepository;
 		this.jsonPayloadMapper = jsonPayloadMapper;
 	}
 
@@ -51,9 +58,25 @@ public class TimelineReplayService {
 		SessionEntity session = sessionRepository.findByPublicId(sessionPublicId)
 			.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "SESSION_NOT_FOUND", "Session not found"));
 		LocalDateTime atUtc = UtcDateTimes.toUtcLocalDateTime(at);
-		List<SessionEventEntity> events = eventRepository.findReplayEvents(session.getId(), atUtc);
+		SessionSnapshotEntity snapshot = snapshotRepository
+			.findFirstBySessionIdAndSnapshotAtLessThanEqualOrderByServerSequenceDesc(session.getId(), atUtc)
+			.orElse(null);
 
-		ReplayState state = replay(sessionPublicId, events, Math.max(1, messageLimit));
+		ReplayState state;
+		List<SessionEventEntity> events;
+		ReplayState snapshotState = restoreSnapshotState(snapshot);
+		boolean restoredFromSnapshot = snapshotState != null;
+		if (restoredFromSnapshot) {
+			state = snapshotState;
+			events = eventRepository.findReplayEventsAfterSequence(session.getId(), snapshot.getServerSequence(), atUtc);
+		}
+		else {
+			events = eventRepository.findReplayEvents(session.getId(), atUtc);
+			state = new ReplayState(sessionPublicId);
+		}
+
+		replayInto(state, events);
+		state.keepRecentMessages(Math.max(1, messageLimit));
 		return new TimelineResponse(
 			sessionPublicId,
 			state.status,
@@ -61,18 +84,69 @@ public class TimelineReplayService {
 			state.participants(),
 			state.messages(),
 			events.size(),
-			false
+			restoredFromSnapshot
 		);
 	}
 
-	private ReplayState replay(String sessionPublicId, List<SessionEventEntity> events, int messageLimit) {
-		ReplayState state = new ReplayState(sessionPublicId);
+	private ReplayState restoreSnapshotState(SessionSnapshotEntity snapshot) {
+		if (snapshot == null) {
+			return null;
+		}
+		try {
+			return ReplayState.fromSnapshot(jsonPayloadMapper.fromJson(snapshot.getStateJson(), SnapshotState.class));
+		}
+		catch (RuntimeException exception) {
+			// Snapshot은 복원 최적화 캐시이므로 읽기 실패 시 event log full replay로 복구한다.
+			return null;
+		}
+	}
+
+	@Transactional
+	public SnapshotResponse createSnapshot(String sessionPublicId) {
+		SessionEntity session = sessionRepository.findByPublicId(sessionPublicId)
+			.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "SESSION_NOT_FOUND", "Session not found"));
+		SessionEventEntity latestEvent = eventRepository.findFirstBySessionIdOrderByServerSequenceDesc(session.getId())
+			.orElseThrow(() -> new ApiException(HttpStatus.CONFLICT, "SNAPSHOT_NOT_AVAILABLE", "No event exists for session"));
+
+		return snapshotRepository.findBySessionIdAndServerSequence(session.getId(), latestEvent.getServerSequence())
+			.map(existing -> toSnapshotResponse(existing, true))
+			.orElseGet(() -> createNewSnapshot(session, latestEvent));
+	}
+
+	private SnapshotResponse createNewSnapshot(SessionEntity session, SessionEventEntity latestEvent) {
+		List<SessionEventEntity> events = eventRepository.findReplayEventsThroughSequence(
+			session.getId(),
+			latestEvent.getServerSequence()
+		);
+		ReplayState state = new ReplayState(session.getPublicId());
+		replayInto(state, events);
+		LocalDateTime now = UtcDateTimes.now();
+		SessionSnapshotEntity snapshot = new SessionSnapshotEntity(
+			session,
+			latestEvent.getServerSequence(),
+			latestEvent.getServerReceivedAt(),
+			jsonPayloadMapper.toJson(state.toSnapshotState()),
+			now
+		);
+		return toSnapshotResponse(snapshotRepository.save(snapshot), false);
+	}
+
+	private SnapshotResponse toSnapshotResponse(SessionSnapshotEntity snapshot, boolean reused) {
+		return new SnapshotResponse(
+			snapshot.getId(),
+			snapshot.getSession().getPublicId(),
+			snapshot.getServerSequence(),
+			UtcDateTimes.toOffsetDateTime(snapshot.getSnapshotAt()),
+			UtcDateTimes.toOffsetDateTime(snapshot.getCreatedAt()),
+			reused
+		);
+	}
+
+	private void replayInto(ReplayState state, List<SessionEventEntity> events) {
 		for (SessionEventEntity event : events) {
 			Map<String, Object> payload = jsonPayloadMapper.toMap(event.getPayloadJson());
 			state.apply(event, payload);
 		}
-		state.keepRecentMessages(messageLimit);
-		return state;
 	}
 
 	private static final class ReplayState {
@@ -156,6 +230,52 @@ public class TimelineReplayService {
 		private List<TimelineMessageResponse> messages() {
 			return List.copyOf(messages);
 		}
+
+		private SnapshotState toSnapshotState() {
+			return new SnapshotState(
+				sessionPublicId,
+				status,
+				participants.values()
+					.stream()
+					.map(MutableParticipant::toSnapshot)
+					.toList(),
+				messages.stream()
+					.map(message -> new SnapshotMessage(
+						message.messageId(),
+						message.senderId(),
+						message.content(),
+						message.serverSequence(),
+						encode(message.createdAt()),
+						message.status()
+					))
+					.toList()
+			);
+		}
+
+		private static ReplayState fromSnapshot(SnapshotState snapshot) {
+			if (snapshot == null || snapshot.sessionId() == null || snapshot.status() == null) {
+				throw new IllegalArgumentException("Snapshot state is incomplete");
+			}
+			ReplayState state = new ReplayState(snapshot.sessionId());
+			state.status = snapshot.status();
+			for (SnapshotParticipant participant : emptyIfNull(snapshot.participants())) {
+				state.participants.put(
+					participant.userId(),
+					MutableParticipant.fromSnapshot(participant)
+				);
+			}
+			for (SnapshotMessage message : emptyIfNull(snapshot.messages())) {
+				state.messages.add(new TimelineMessageResponse(
+					message.messageId(),
+					message.senderId(),
+					message.content(),
+					message.serverSequence(),
+					UtcDateTimes.toOffsetDateTime(decode(message.createdAt())),
+					message.status()
+				));
+			}
+			return state;
+		}
 	}
 
 	@FunctionalInterface
@@ -211,6 +331,29 @@ public class TimelineReplayService {
 			}
 		}
 
+		private static MutableParticipant fromSnapshot(SnapshotParticipant snapshot) {
+			MutableParticipant participant = new MutableParticipant(
+				snapshot.userId(),
+				snapshot.displayName(),
+				snapshot.state(),
+				decode(snapshot.joinedAt())
+			);
+			participant.leftAt = decode(snapshot.leftAt());
+			participant.lastSeenAt = decode(snapshot.lastSeenAt());
+			return participant;
+		}
+
+		private SnapshotParticipant toSnapshot() {
+			return new SnapshotParticipant(
+				userId,
+				displayName,
+				state,
+				encode(joinedAt),
+				encode(leftAt),
+				encode(lastSeenAt)
+			);
+		}
+
 		private TimelineParticipantResponse toResponse() {
 			return new TimelineParticipantResponse(
 				userId,
@@ -221,5 +364,63 @@ public class TimelineReplayService {
 				UtcDateTimes.toOffsetDateTime(lastSeenAt)
 			);
 		}
+	}
+
+	private record SnapshotState(
+		String sessionId,
+		SessionStatus status,
+		List<SnapshotParticipant> participants,
+		List<SnapshotMessage> messages
+	) {
+	}
+
+	private record SnapshotParticipant(
+		String userId,
+		String displayName,
+		ParticipantState state,
+		String joinedAt,
+		String leftAt,
+		String lastSeenAt
+	) {
+	}
+
+	private record SnapshotMessage(
+		String messageId,
+		String senderId,
+		String content,
+		long serverSequence,
+		String createdAt,
+		String status
+	) {
+	}
+
+	private static String encode(LocalDateTime dateTime) {
+		if (dateTime == null) {
+			return null;
+		}
+		return dateTime.atOffset(ZoneOffset.UTC).toString();
+	}
+
+	private static String encode(OffsetDateTime dateTime) {
+		if (dateTime == null) {
+			return null;
+		}
+		return dateTime.toInstant()
+			.atOffset(ZoneOffset.UTC)
+			.toString();
+	}
+
+	private static LocalDateTime decode(String dateTime) {
+		if (dateTime == null || dateTime.isBlank()) {
+			return null;
+		}
+		return LocalDateTime.ofInstant(OffsetDateTime.parse(dateTime).toInstant(), ZoneOffset.UTC);
+	}
+
+	private static <T> List<T> emptyIfNull(List<T> values) {
+		if (values == null) {
+			return List.of();
+		}
+		return values;
 	}
 }

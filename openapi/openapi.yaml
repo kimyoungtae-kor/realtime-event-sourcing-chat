@@ -174,7 +174,7 @@ paths:
     get:
       tags: [Timeline]
       summary: Restore session state at a point in time
-      description: Replays events ordered by serverSequence where serverReceivedAt is less than or equal to `at`.
+      description: Uses the latest snapshot before `at` when available, then replays events ordered by serverSequence where serverReceivedAt is less than or equal to `at`.
       parameters:
         - $ref: "#/components/parameters/SessionId"
         - name: at
@@ -227,12 +227,22 @@ paths:
     post:
       tags: [Timeline]
       summary: Create a snapshot for optimized restore
-      description: Planned extension. Snapshot table and schema are already prepared.
+      description: Creates a snapshot at the latest serverSequence. If a snapshot already exists for that sequence, returns it with reused=true.
       parameters:
         - $ref: "#/components/parameters/SessionId"
       responses:
-        "501":
-          description: Not implemented yet
+        "201":
+          description: Snapshot created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SnapshotResponse"
+        "200":
+          description: Snapshot already exists for the latest sequence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SnapshotResponse"
 components:
   parameters:
     SessionId:
@@ -463,7 +473,29 @@ components:
             $ref: "#/components/schemas/TimelineMessage"
         appliedEventCount:
           type: integer
+          description: Number of events replayed for this restore. When restoredFromSnapshot is true, this is the delta event count after the snapshot.
         restoredFromSnapshot:
+          type: boolean
+    SnapshotResponse:
+      type: object
+      required: [snapshotId, sessionId, serverSequence, snapshotAt, createdAt, reused]
+      properties:
+        snapshotId:
+          type: integer
+          format: int64
+        sessionId:
+          type: string
+          format: uuid
+        serverSequence:
+          type: integer
+          format: int64
+        snapshotAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        reused:
           type: boolean
     ErrorResponse:
       type: object

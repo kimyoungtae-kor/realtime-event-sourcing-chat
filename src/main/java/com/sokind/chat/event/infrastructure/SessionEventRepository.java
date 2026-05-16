@@ -14,6 +14,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface SessionEventRepository extends JpaRepository<SessionEventEntity, Long> {
 
+	Optional<SessionEventEntity> findFirstBySessionIdOrderByServerSequenceDesc(Long sessionId);
+
 	@EntityGraph(attributePaths = "session")
 	Optional<SessionEventEntity> findBySessionIdAndSenderIdAndClientEventId(
 		Long sessionId,
@@ -49,6 +51,34 @@ public interface SessionEventRepository extends JpaRepository<SessionEventEntity
 		""")
 	List<SessionEventEntity> findReplayEvents(
 		@Param("sessionId") Long sessionId,
+		@Param("at") LocalDateTime at
+	);
+
+	@Query("""
+		select e
+		from SessionEventEntity e
+		join fetch e.session s
+		where e.session.id = :sessionId
+		  and e.serverSequence <= :serverSequence
+		order by e.serverSequence asc
+		""")
+	List<SessionEventEntity> findReplayEventsThroughSequence(
+		@Param("sessionId") Long sessionId,
+		@Param("serverSequence") long serverSequence
+	);
+
+	@Query("""
+		select e
+		from SessionEventEntity e
+		join fetch e.session s
+		where e.session.id = :sessionId
+		  and e.serverSequence > :afterSequence
+		  and e.serverReceivedAt <= :at
+		order by e.serverSequence asc
+		""")
+	List<SessionEventEntity> findReplayEventsAfterSequence(
+		@Param("sessionId") Long sessionId,
+		@Param("afterSequence") long afterSequence,
 		@Param("at") LocalDateTime at
 	);
 }

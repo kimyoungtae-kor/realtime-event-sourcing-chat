@@ -56,10 +56,10 @@ curl http://localhost:8080/actuator/health
 - `clientEventId` 기반 중복 이벤트 방지
 - `serverSequence` 기반 일관된 이벤트 정렬
 - 특정 시점 timeline replay API
+- Snapshot 생성 API와 snapshot + delta replay 복원 최적화
 - REST API 수동 검증 기록
 - WebSocket STOMP message/presence event 수신 및 topic broadcast
-
-WebSocket 수동 검증은 아직 남아 있습니다.
+- H2 기반 통합 테스트
 
 ## API Summary
 
@@ -70,6 +70,7 @@ WebSocket 수동 검증은 아직 남아 있습니다.
 - `POST /sessions/{sessionId}/events`
 - `GET /sessions/{sessionId}/events`
 - `GET /sessions/{sessionId}/timeline?at=...`
+- `POST /sessions/{sessionId}/snapshots`
 - `POST /sessions/{sessionId}/end`
 
 자세한 스펙은 [openapi/openapi.yaml](openapi/openapi.yaml)을 기준으로 합니다.
@@ -83,13 +84,14 @@ WebSocket 수동 검증은 아직 남아 있습니다.
 - [DDL](docs/ddl.sql)
 - [Queries](docs/queries.md)
 - [Operations](docs/operations.md)
+- [Async Projection](docs/async-projection.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [WebSocket](docs/websocket.md)
 - [Manual Verification Checklist](docs/manual-test-checklist.md)
 
 ## Verification Status
 
-2026-05-15 기준으로 REST 기반 MVP 흐름을 Postman과 DBeaver로 수동 검증했습니다.
+2026-05-15 기준으로 REST 기반 MVP 흐름을 Postman과 DBeaver로 수동 검증했고, WebSocket은 테스트 페이지와 STOMP 프레임으로 확인했습니다.
 
 확인한 내용:
 
@@ -101,8 +103,16 @@ WebSocket 수동 검증은 아직 남아 있습니다.
 - timeline restore
 - disconnect/reconnect 상태 반영
 - completed session 이후 event append 거절
+- WebSocket publish / subscribe
+- snapshot 생성과 snapshot 기반 timeline restore
 
 상세 결과는 [Manual Verification Checklist](docs/manual-test-checklist.md)에 남겼습니다.
+
+자동화된 검증:
+
+```powershell
+.\gradlew.bat test
+```
 
 ## Security
 

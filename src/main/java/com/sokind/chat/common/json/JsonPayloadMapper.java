@@ -22,8 +22,25 @@ public class JsonPayloadMapper {
 	}
 
 	public String toJson(Map<String, Object> payload) {
+		return writeJson(payload == null ? Collections.emptyMap() : payload);
+	}
+
+	public String toJson(Object payload) {
+		return writeJson(payload == null ? Collections.emptyMap() : payload);
+	}
+
+	public <T> T fromJson(String payloadJson, Class<T> type) {
 		try {
-			return objectMapper.writeValueAsString(payload == null ? Collections.emptyMap() : payload);
+			return objectMapper.readValue(unwrapJsonString(payloadJson), type);
+		}
+		catch (JacksonException exception) {
+			throw new IllegalArgumentException("Stored JSON cannot be deserialized", exception);
+		}
+	}
+
+	private String writeJson(Object payload) {
+		try {
+			return objectMapper.writeValueAsString(payload);
 		}
 		catch (JacksonException exception) {
 			throw new IllegalArgumentException("Payload cannot be serialized to JSON", exception);
@@ -35,10 +52,24 @@ public class JsonPayloadMapper {
 			return Collections.emptyMap();
 		}
 		try {
-			return objectMapper.readValue(payloadJson, MAP_TYPE);
+			return objectMapper.readValue(unwrapJsonString(payloadJson), MAP_TYPE);
 		}
 		catch (JacksonException exception) {
 			throw new IllegalArgumentException("Stored payload is not valid JSON", exception);
 		}
+	}
+
+	private String unwrapJsonString(String payloadJson) {
+		try {
+			String nested = objectMapper.readValue(payloadJson, String.class);
+			String trimmed = nested.trim();
+			if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+				return nested;
+			}
+		}
+		catch (JacksonException ignored) {
+			return payloadJson;
+		}
+		return payloadJson;
 	}
 }

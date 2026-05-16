@@ -19,11 +19,12 @@
 - 완료된 세션에 대한 추가 이벤트 거절
 - DB에 이벤트와 projection이 저장되는지 확인
 - WebSocket publish / subscribe
+- Snapshot 생성과 snapshot 기반 restore
+- 통합 테스트
 
 아직 이 문서에서 검증하지 않은 범위:
 
-- Snapshot 기반 복원 최적화
-- 비동기 projection worker
+- 비동기 projection worker 구현
 - 부하 테스트
 - 장애 주입 테스트
 
@@ -205,6 +206,25 @@ GET {{baseUrl}}/sessions/{{sessionId}}/timeline?at=2026-12-31T23:59:59Z&messageL
 - duplicate message는 중복 반영되지 않음
 - `restoredFromSnapshot = false`
 
+### Snapshot 생성
+
+```http
+POST {{baseUrl}}/sessions/{{sessionId}}/snapshots
+```
+
+기대 결과:
+
+- HTTP `201`
+- `serverSequence`가 최신 이벤트 sequence와 일치
+- 같은 sequence에서 다시 호출하면 HTTP `200`
+- `reused = true`
+
+Snapshot 생성 이후 같은 세션에 새 메시지를 추가하고 timeline을 조회하면:
+
+- HTTP `200`
+- `restoredFromSnapshot = true`
+- snapshot 이후 이벤트만 replay됨
+
 ### Disconnect
 
 ```http
@@ -376,6 +396,8 @@ PowerShell STOMP 검증 세션:
 | Completed Reject | PASS | 종료 후 message append 시 HTTP `409`, code `SESSION_COMPLETED` 확인 |
 | WebSocket Test Page | READY | `GET /ws-test.html`로 브라우저 수동 검증 가능 |
 | WebSocket Publish / Subscribe | PASS | `ClientWebSocket`과 브라우저 테스트 페이지에서 STOMP 연결, 구독, message/presence 송수신 확인 |
+| Snapshot API | PASS | 통합 테스트에서 snapshot 생성, 중복 생성 방지, snapshot 이후 delta replay 확인 |
+| Integration Test | PASS | `.\gradlew.bat test` 성공 |
 
 메모:
 
@@ -389,9 +411,10 @@ PowerShell STOMP 검증 세션:
 - 같은 `clientEventId`인 `ws-message-001` 재전송 시 `eventId = 13`, `serverSequence = 3`이 유지되고 `duplicate = true`로 내려오는 것을 확인했다.
 - `DISCONNECTED` 이후 세션 상태가 `INTERRUPTED`로 바뀌는 것을 확인했다.
 - 종료된 이전 세션 `74253500-4822-4900-9521-bd5ec5750e75`에 join을 시도했을 때 `SESSION_COMPLETED`가 반환되는 것도 확인했다. 이는 완료 세션에 이벤트를 받지 않는 기대 동작이다.
+- 2026-05-16 통합 테스트에서 duplicate event, completed reject, snapshot reuse, snapshot 기반 timeline restore를 확인했다.
 
 ## 남은 항목
 
-- Snapshot 기반 복원 최적화
-- 비동기 projection, retry, DLQ 구현 또는 문서 보강
-- 자동화된 통합 테스트
+- 비동기 projection worker 구현
+- 부하 테스트
+- 장애 주입 테스트

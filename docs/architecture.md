@@ -44,9 +44,14 @@ POST /sessions/{id}/events
   -> participant/session current state update
 
 GET /sessions/{id}/timeline?at=...
-  -> events where server_received_at <= at
-  -> order by server_sequence asc
-  -> in-memory replay
+  -> find latest snapshot where snapshot_at <= at
+  -> replay events after snapshot sequence
+  -> fall back to full replay when snapshot does not exist
+
+POST /sessions/{id}/snapshots
+  -> replay through latest serverSequence
+  -> save state_json into session_snapshots
+  -> reuse existing snapshot for same sequence
 ```
 
 WebSocket endpoint `/ws`는 REST event append service와 연결되어 있다.

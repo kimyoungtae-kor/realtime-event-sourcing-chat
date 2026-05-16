@@ -22,6 +22,7 @@
 | `POST` | `/sessions/{sessionId}/events` | 메시지와 접속 상태 이벤트 수집 |
 | `GET` | `/sessions/{sessionId}/events` | 재연결 또는 디버깅용 이벤트 조회 |
 | `GET` | `/sessions/{sessionId}/timeline` | 특정 시점 상태 복원 |
+| `POST` | `/sessions/{sessionId}/snapshots` | 현재 이벤트 기준 snapshot 생성 |
 | `POST` | `/sessions/{sessionId}/end` | 세션 종료 이벤트 수집 |
 
 ## 이벤트 수집 규칙
@@ -57,7 +58,17 @@ Timeline API는 기준 시점 `at`까지 저장된 이벤트를 replay한다.
 GET /sessions/{sessionId}/timeline?at=2026-12-31T23:59:59Z&messageLimit=100
 ```
 
-현재 구현은 전체 replay 방식이다. Snapshot table은 준비되어 있지만 snapshot 기반 최적화는 다음 단계로 남겨두었다.
+현재 구현은 snapshot이 있으면 기준 시점 이전 최신 snapshot을 먼저 읽고, 이후 이벤트만 replay한다. snapshot이 없으면 전체 이벤트 replay로 복원한다.
+
+`restoredFromSnapshot = true`일 때 `appliedEventCount`는 snapshot 이후 실제로 replay한 delta 이벤트 수를 의미한다.
+
+Snapshot은 복원 최적화 캐시라서 snapshot read에 실패하면 event log 전체 replay로 fallback한다.
+
+```http
+POST /sessions/{sessionId}/snapshots
+```
+
+Snapshot은 최신 `serverSequence` 기준으로 생성한다. 같은 sequence의 snapshot이 이미 있으면 새 row를 만들지 않고 기존 snapshot을 `200`으로 반환한다.
 
 ## OpenAPI
 

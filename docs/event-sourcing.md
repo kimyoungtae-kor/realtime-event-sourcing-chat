@@ -32,7 +32,7 @@ canonical order는 `server_sequence`다.
 
 ## Replay
 
-MVP replay 절차:
+기본 replay 절차:
 
 1. 기준 시점 `at` 이하의 이벤트 조회
 2. `server_sequence asc` 정렬
@@ -53,13 +53,27 @@ MVP replay 절차:
 - API 응답은 사람이 확인하기 쉽도록 `Asia/Seoul` offset으로 반환한다.
 - 클라이언트는 `at` 값을 UTC `Z` 또는 명시적 offset이 포함된 ISO-8601 형식으로 전달한다.
 
-## Snapshot Extension
+## Snapshot + Replay
 
-최적화 단계에서는 `session_snapshots`에서 기준 시점 이전 최신 snapshot을 찾고, snapshot 이후 이벤트만 replay한다.
+`POST /sessions/{sessionId}/snapshots`는 최신 이벤트 sequence 기준으로 상태를 저장한다.
 
-Snapshot 주기 초안:
+저장 내용:
 
-- 이벤트 100개마다 자동 생성
-- 또는 세션 종료 시 최종 snapshot 생성
+- session status
+- participants current state
+- messages
+- snapshot 기준 `server_sequence`
 
-현재 snapshot table은 준비되어 있으나 API 구현은 다음 단계의 가산점 항목으로 남겨둔다.
+복원 시에는 `session_snapshots`에서 기준 시점 이전 최신 snapshot을 찾고, snapshot 이후 이벤트만 replay한다.
+
+```text
+latest snapshot where snapshot_at <= at
+  -> restore state_json
+  -> replay events where server_sequence > snapshot.server_sequence and server_received_at <= at
+```
+
+같은 sequence의 snapshot은 `uk_snapshots_session_sequence`로 중복 생성을 막는다.
+
+Snapshot은 최적화 캐시이며 source of truth가 아니다. snapshot JSON을 읽지 못하거나 schema가 맞지 않으면 snapshot을 버리고 `session_events` 전체 replay로 복구한다.
+
+현재 자동 snapshot worker는 구현하지 않았다. 운영 확장안은 이벤트 100개마다 생성하거나 세션 종료 시 최종 snapshot을 생성하는 방식이다.
