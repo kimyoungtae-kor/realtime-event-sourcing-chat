@@ -45,6 +45,16 @@ Health check:
 curl http://localhost:8080/actuator/health
 ```
 
+## Temporary Deployment
+
+면접 과제 확인을 위해 AWS EC2에 임시 배포했습니다.
+
+- Service URL: https://chat.youngtae.co.kr
+- Verification Page: https://chat.youngtae.co.kr/ws-test.html
+- Health Check: https://chat.youngtae.co.kr/actuator/health
+
+검증 페이지에서 세션 생성, 입장, REST/WebSocket 메시지 전송, 중복 재전송, 스냅샷 생성, 타임라인 복원, 종료 후 이벤트 거절 흐름을 확인할 수 있습니다.
+
 ## Implemented Scope
 
 - Session, Participant, Event, Snapshot JPA Entity
