@@ -123,6 +123,27 @@ class EventSourcingIntegrationTests {
 	}
 
 	@Test
+	void joinIsIdempotentAndRejoinIsAllowedAfterLeave() {
+		SessionEntity session = sessionService.createSession();
+
+		EventAppendResult firstJoin = sessionService.join(session.getPublicId(), "user-a", "User A", "join-user-a-004", null);
+		EventAppendResult duplicateJoin = sessionService.join(session.getPublicId(), "user-a", "User A", "join-user-a-004", null);
+
+		assertThat(firstJoin.duplicate()).isFalse();
+		assertThat(duplicateJoin.duplicate()).isTrue();
+
+		assertThatThrownBy(() -> sessionService.join(session.getPublicId(), "user-a", "User A", "join-user-a-005", null))
+			.isInstanceOf(ApiException.class)
+			.hasMessageContaining("이미 입장한 참여자입니다");
+
+		sessionService.leave(session.getPublicId(), "user-a", "leave-user-a-001", null);
+
+		EventAppendResult rejoin = sessionService.join(session.getPublicId(), "user-a", "User A", "join-user-a-006", null);
+
+		assertThat(rejoin.duplicate()).isFalse();
+	}
+
+	@Test
 	void completedSessionRejectsNewEvents() {
 		SessionEntity session = sessionService.createSession();
 		sessionService.join(session.getPublicId(), "user-a", "User A", "join-user-a-003", null);
@@ -133,7 +154,7 @@ class EventSourcingIntegrationTests {
 			message("message-after-end", "msg-after-end", "should fail")
 		))
 			.isInstanceOf(ApiException.class)
-			.hasMessageContaining("Completed session cannot accept new events");
+			.hasMessageContaining("종료된 세션에는 새 이벤트를 저장할 수 없습니다");
 
 		TimelineResponse timeline = timelineReplayService.restore(session.getPublicId(), OffsetDateTime.now().plusDays(1), 100);
 		assertThat(timeline.status()).isEqualTo(SessionStatus.COMPLETED);

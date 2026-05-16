@@ -42,7 +42,7 @@ public class RealtimeMessageController {
 		@Valid @Payload EventAppendRequest request
 	) {
 		if (request.type() != EventType.MESSAGE_SENT) {
-			sendError(sessionId, "UNSUPPORTED_EVENT_TYPE", "Only MESSAGE_SENT is accepted on the messages channel");
+			sendError(sessionId, "UNSUPPORTED_EVENT_TYPE", "메시지 채널에서는 MESSAGE_SENT만 전송할 수 있습니다");
 			return;
 		}
 		appendAndBroadcast(sessionId, request);
@@ -54,7 +54,7 @@ public class RealtimeMessageController {
 		@Valid @Payload EventAppendRequest request
 	) {
 		if (request.type() != EventType.DISCONNECTED && request.type() != EventType.RECONNECTED) {
-			sendError(sessionId, "UNSUPPORTED_EVENT_TYPE", "Only DISCONNECTED or RECONNECTED is accepted on the realtime events channel");
+			sendError(sessionId, "UNSUPPORTED_EVENT_TYPE", "접속 상태 채널에서는 DISCONNECTED 또는 RECONNECTED만 전송할 수 있습니다");
 			return;
 		}
 		appendAndBroadcast(sessionId, request);
@@ -79,7 +79,7 @@ public class RealtimeMessageController {
 			sendError(sessionId, exception.getCode(), exception.getMessage());
 		}
 		catch (RuntimeException exception) {
-			sendError(sessionId, "REALTIME_EVENT_FAILED", "Failed to process realtime event");
+			sendError(sessionId, "REALTIME_EVENT_FAILED", "실시간 이벤트 처리에 실패했습니다");
 		}
 	}
 

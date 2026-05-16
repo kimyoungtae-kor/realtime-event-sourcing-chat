@@ -79,7 +79,7 @@ public class SessionService {
 
 	public EventAppendResult end(String sessionPublicId, String endedBy, String clientEventId, OffsetDateTime clientSentAt) {
 		if (endedBy == null || endedBy.isBlank()) {
-			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_END_REQUEST", "endedBy is required");
+			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_END_REQUEST", "종료 요청자(endedBy)가 필요합니다");
 		}
 		return sessionEventService.appendEvent(
 			sessionPublicId,

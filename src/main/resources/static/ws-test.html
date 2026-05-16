@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>WebSocket STOMP Test</title>
+	<title>통합 수동 검증</title>
 	<style>
 		:root {
 			color-scheme: light;
@@ -175,6 +175,26 @@
 			word-break: break-word;
 		}
 
+		.log-header {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			gap: 12px;
+			margin-bottom: 12px;
+		}
+
+		.log-actions {
+			display: flex;
+			gap: 8px;
+			flex-wrap: wrap;
+		}
+
+		.log-actions button {
+			min-height: 32px;
+			padding: 6px 9px;
+			font-size: 12px;
+		}
+
 		.log-line + .log-line {
 			margin-top: 8px;
 		}
@@ -213,84 +233,119 @@
 </head>
 <body>
 <main>
-	<h1>WebSocket STOMP 수동 검증</h1>
-	<p>REST API와 같은 이벤트 저장 로직을 WebSocket에서도 사용하는지 확인하는 테스트 페이지다.</p>
+	<h1>통합 수동 검증</h1>
+	<p>Postman 없이 세션, 실시간 통신, 메시지 중복 처리, 이벤트 조회, 스냅샷 복원을 한 화면에서 확인한다.</p>
 
 	<div class="layout">
 		<div>
 			<section>
-				<h2>Session</h2>
+				<h2>세션</h2>
 				<label>
-					REST Base URL
+					API 기본 URL
 					<input id="baseUrl" value="http://localhost:8080">
 				</label>
 				<label>
-					Session ID
+					세션 ID
 					<input id="sessionId" placeholder="POST /sessions 응답값">
 				</label>
 				<label>
-					User ID
+					사용자 ID
 					<input id="senderId" value="user-ws">
 				</label>
 				<label>
-					Display Name
-					<input id="displayName" value="WebSocket User">
+					표시 이름
+					<input id="displayName" value="검증 사용자">
 				</label>
 				<div class="actions">
 					<button type="button" id="createSession">세션 생성</button>
-					<button type="button" id="joinSession">Join</button>
+					<button type="button" id="joinSession">입장</button>
+					<button type="button" id="leaveSession">퇴장</button>
+					<button type="button" id="endSession">세션 종료</button>
+					<button type="button" id="sendAfterEnd" class="warn">종료 후 메시지 거절 자동 확인</button>
 				</div>
+				<p>퇴장은 참여자 상태만 LEFT로 바꾸고, 세션 종료는 세션을 COMPLETED로 닫아 이후 이벤트를 거절한다.</p>
 			</section>
 
 			<section>
-				<h2>WebSocket</h2>
+				<h2>실시간 연결</h2>
 				<label>
-					WebSocket URL
+					실시간 연결 URL(WebSocket)
 					<input id="wsUrl" value="ws://localhost:8080/ws">
 				</label>
 				<div class="actions">
-					<button type="button" id="connect" class="primary">Connect</button>
-					<button type="button" id="disconnect">Disconnect</button>
-					<button type="button" id="subscribe">Subscribe</button>
-					<button type="button" id="clearLog">Log Clear</button>
+					<button type="button" id="connect" class="primary">연결</button>
+					<button type="button" id="disconnect">연결 해제</button>
+					<button type="button" id="subscribe">구독</button>
+					<button type="button" id="clearLog">로그 지우기</button>
 				</div>
 				<div class="status-row">
-					<span id="socketState" class="badge">DISCONNECTED</span>
-					<span id="subscriptionState" class="badge">NOT SUBSCRIBED</span>
+					<span id="socketState" class="badge">연결 안 됨</span>
+					<span id="subscriptionState" class="badge">구독 안 됨</span>
 				</div>
 			</section>
 
 			<section>
-				<h2>Message</h2>
+				<h2>메시지 전송</h2>
 				<label>
-					Message ID
+					메시지 ID
 					<input id="messageId" value="ws-msg-001">
 				</label>
 				<label>
-					Client Event ID
+					중복 방지 ID(clientEventId)
 					<input id="messageClientEventId" value="ws-message-001">
 				</label>
 				<label>
-					Content
-					<textarea id="messageContent">hello over websocket</textarea>
+					내용
+					<textarea id="messageContent">안녕</textarea>
 				</label>
 				<div class="actions">
-					<button type="button" id="sendMessage" class="primary">Send Message</button>
-					<button type="button" id="sendDuplicate">Duplicate</button>
+					<button type="button" id="sendRestMessage" class="primary">REST로 새 메시지 전송</button>
+					<button type="button" id="sendRestDuplicate">REST 직전 메시지 재전송</button>
+					<button type="button" id="sendMessage">WebSocket으로 새 메시지 전송</button>
+					<button type="button" id="sendDuplicate">WebSocket 직전 메시지 재전송</button>
 				</div>
 			</section>
 
 			<section>
-				<h2>Presence</h2>
+				<h2>이벤트 조회와 상태 복원</h2>
+				<label>
+					이 시퀀스 이후만 조회(afterSequence)
+					<input id="afterSequence" value="2">
+				</label>
+				<label>
+					복원 기준 시점
+					<input id="timelineAt" value="2026-12-31T23:59:59+09:00">
+				</label>
+				<label>
+					복원할 최근 메시지 수
+					<input id="messageLimit" value="100">
+				</label>
 				<div class="actions">
-					<button type="button" id="sendDisconnected">DISCONNECTED</button>
-					<button type="button" id="sendReconnected">RECONNECTED</button>
+					<button type="button" id="listEvents">전체 이벤트 조회</button>
+					<button type="button" id="listEventsAfter">지정 시퀀스 이후 조회</button>
+					<button type="button" id="createSnapshot" class="primary">스냅샷 생성/재호출</button>
+					<button type="button" id="restoreTimeline">타임라인 상태 복원</button>
 				</div>
 			</section>
+
+			<section>
+				<h2>접속 상태</h2>
+				<div class="actions">
+					<button type="button" id="sendDisconnected">끊김 처리</button>
+					<button type="button" id="sendReconnected">재연결 처리</button>
+				</div>
+			</section>
+
 		</div>
 
 		<section>
-			<h2>Event Log</h2>
+			<div class="log-header">
+				<h2>검증 로그</h2>
+				<div class="log-actions">
+					<button type="button" id="scrollTop">맨 위</button>
+					<button type="button" id="scrollLatest">최신 로그</button>
+				</div>
+			</div>
 			<div id="log" class="log" aria-live="polite"></div>
 		</section>
 	</div>
@@ -302,9 +357,22 @@
 		connected: false,
 		subscribed: false,
 		subscriptionIds: [],
+		joinCounter: 1,
+		messageCounter: 1,
+		lastRestMessagePayload: null,
+		lastWsMessagePayload: null,
 	};
 
 	const $ = (id) => document.getElementById(id);
+
+	const defaultHttpOrigin = window.location.origin && window.location.protocol.startsWith("http")
+		? window.location.origin
+		: "http://localhost:8080";
+	const defaultWsOrigin = window.location.host
+		? `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/ws`
+		: "ws://localhost:8080/ws";
+	$("baseUrl").value = defaultHttpOrigin;
+	$("wsUrl").value = defaultWsOrigin;
 
 	function now() {
 		return new Date().toLocaleTimeString("ko-KR", { hour12: false });
@@ -316,7 +384,54 @@
 		const body = typeof data === "undefined" ? "" : `\n${typeof data === "string" ? data : JSON.stringify(data, null, 2)}`;
 		line.textContent = `[${now()}] ${title}${body}`;
 		$("log").appendChild(line);
-		$("log").scrollTop = $("log").scrollHeight;
+		scrollToLatestLog();
+	}
+
+	function scrollToLatestLog() {
+		$("log").scrollTo({ top: $("log").scrollHeight, behavior: "smooth" });
+		$("log").focus({ preventScroll: true });
+	}
+
+	function scrollToPageTop() {
+		window.scrollTo({ top: 0, behavior: "smooth" });
+	}
+
+	function baseUrl() {
+		return $("baseUrl").value.trim().replace(/\/$/, "");
+	}
+
+	function sessionId() {
+		const value = $("sessionId").value.trim();
+		if (!value) {
+			log("error", "세션 ID가 필요합니다");
+			return null;
+		}
+		return value;
+	}
+
+	async function readBody(response) {
+		const text = await response.text();
+		if (!text) {
+			return null;
+		}
+		try {
+			return JSON.parse(text);
+		}
+		catch (error) {
+			return text;
+		}
+	}
+
+	async function requestJson(method, path, body, title) {
+		const options = { method, headers: { "Content-Type": "application/json" } };
+		if (typeof body !== "undefined" && body !== null) {
+			options.body = JSON.stringify(body);
+		}
+		const response = await fetch(`${baseUrl()}${path}`, options);
+		const responseBody = await readBody(response);
+		log(response.ok ? "recv" : "error", `${method} ${path} -> ${response.status} ${title || ""}`.trim(), responseBody);
+		scrollToPageTop();
+		return { response, body: responseBody };
 	}
 
 	function setSocketState(label, kind) {
@@ -334,13 +449,24 @@
 		return `${command}\n${headerLines.join("\n")}\n\n${body || ""}\0`;
 	}
 
-	function sendFrame(command, headers, body) {
+	function sendFrame(command, headers, body, title) {
 		if (!state.socket || state.socket.readyState !== WebSocket.OPEN) {
-			log("error", "WebSocket is not open");
+			log("error", "실시간 연결이 열려 있지 않습니다");
 			return;
 		}
 		state.socket.send(stompFrame(command, headers, body));
-		log("send", `SEND FRAME ${command}`, { headers, body: body ? JSON.parse(body) : null });
+		log("send", title || `${stompCommandLabel(command)} 전송`, { headers, body: body ? JSON.parse(body) : null });
+		scrollToPageTop();
+	}
+
+	function stompCommandLabel(command) {
+		const labels = {
+			CONNECT: "실시간 연결 요청",
+			SUBSCRIBE: "구독 요청",
+			UNSUBSCRIBE: "기존 구독 해제 요청",
+			SEND: "실시간 메시지/이벤트",
+		};
+		return labels[command] || `STOMP ${command}`;
 	}
 
 	function parseFrame(raw) {
@@ -374,78 +500,72 @@
 		const frame = parseFrame(raw);
 		if (frame.command === "CONNECTED") {
 			state.connected = true;
-			setSocketState("CONNECTED", "ok");
-			log("recv", "CONNECTED", frame.headers);
+			setSocketState("연결됨", "ok");
+			log("recv", "실시간 연결 완료", frame.headers);
 			subscribe();
 			return;
 		}
 		if (frame.command === "MESSAGE") {
-			log("recv", `MESSAGE ${frame.headers.destination || ""}`, frame.body);
+			log("recv", `구독 채널 이벤트 수신 ${frame.headers.destination || ""}`, frame.body);
 			return;
 		}
 		if (frame.command === "ERROR") {
-			log("error", "STOMP ERROR", frame);
+			log("error", "실시간 통신 에러", frame);
 			return;
 		}
-		log("recv", `RECEIVED ${frame.command}`, frame);
+		log("recv", `STOMP 프레임 수신 ${frame.command}`, frame);
 	}
 
 	async function createSession() {
-		const response = await fetch(`${$("baseUrl").value}/sessions`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: "{}",
-		});
-		const body = await response.json();
-		if (!response.ok) {
-			log("error", "POST /sessions failed", body);
+		const { response, body } = await requestJson("POST", "/sessions", {}, "세션 생성");
+		if (!response.ok || !body?.sessionId) {
 			return;
 		}
 		$("sessionId").value = body.sessionId;
-		log("recv", "POST /sessions", body);
+	}
+
+	function joinPayload() {
+		const userId = $("senderId").value.trim();
+		return {
+			userId,
+			displayName: $("displayName").value.trim(),
+			clientEventId: `join-${userId}-${state.joinCounter++}-${Date.now()}`,
+		};
 	}
 
 	async function joinSession() {
-		const sessionId = $("sessionId").value.trim();
-		const userId = $("senderId").value.trim();
-		const request = {
-			userId,
-			displayName: $("displayName").value.trim(),
-			clientEventId: `join-${userId}-ws-001`,
-		};
-		const response = await fetch(`${$("baseUrl").value}/sessions/${sessionId}/join`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(request),
-		});
-		const body = await response.json();
-		log(response.ok ? "recv" : "error", `POST /sessions/${sessionId}/join`, body);
+		const currentSessionId = sessionId();
+		if (!currentSessionId) {
+			return;
+		}
+		const request = joinPayload();
+		await requestJson("POST", `/sessions/${currentSessionId}/join`, request, "입장");
 	}
 
 	function connect() {
 		const url = $("wsUrl").value.trim();
 		state.socket = new WebSocket(url);
-		setSocketState("CONNECTING", "");
+		setSocketState("연결 중", "");
 		state.socket.onopen = () => {
 			sendFrame("CONNECT", {
 				"accept-version": "1.2",
 				"heart-beat": "10000,10000",
-			});
+			}, null, "실시간 연결 요청 전송");
 		};
 		state.socket.onmessage = (event) => {
 			String(event.data).split("\0").forEach(handleFrame);
 		};
 		state.socket.onerror = () => {
-			setSocketState("ERROR", "fail");
-			log("error", "WebSocket error");
+			setSocketState("에러", "fail");
+			log("error", "실시간 연결 에러");
 		};
 		state.socket.onclose = () => {
 			state.connected = false;
 			state.subscribed = false;
 			state.subscriptionIds = [];
-			setSocketState("DISCONNECTED", "");
-			setSubscriptionState("NOT SUBSCRIBED", "");
-			log("recv", "WebSocket closed");
+			setSocketState("연결 안 됨", "");
+			setSubscriptionState("구독 안 됨", "");
+			log("recv", "실시간 연결 종료");
 		};
 	}
 
@@ -456,50 +576,106 @@
 	}
 
 	function subscribe() {
-		const sessionId = $("sessionId").value.trim();
-		if (!sessionId) {
-			log("error", "Session ID is required before subscribe");
+		const currentSessionId = sessionId();
+		if (!currentSessionId) {
 			return;
 		}
 		if (!state.connected) {
-			log("error", "Connect before subscribe");
+			log("error", "구독 전에 실시간 연결을 먼저 열어주세요");
 			return;
 		}
 		for (const id of state.subscriptionIds) {
 			sendFrame("UNSUBSCRIBE", { id });
 		}
-		state.subscriptionIds = [`events-${sessionId}`, `errors-${sessionId}`];
+		state.subscriptionIds = [`events-${currentSessionId}`, `errors-${currentSessionId}`];
 		sendFrame("SUBSCRIBE", {
 			id: state.subscriptionIds[0],
-			destination: `/topic/sessions/${sessionId}`,
+			destination: `/topic/sessions/${currentSessionId}`,
 		});
 		sendFrame("SUBSCRIBE", {
 			id: state.subscriptionIds[1],
-			destination: `/topic/sessions/${sessionId}/errors`,
+			destination: `/topic/sessions/${currentSessionId}/errors`,
 		});
 		state.subscribed = true;
-		setSubscriptionState("SUBSCRIBED", "ok");
+		setSubscriptionState("구독 중", "ok");
 	}
 
-	function sendMessage() {
-		const sessionId = $("sessionId").value.trim();
-		const payload = {
+	function buildMessagePayload() {
+		const next = state.messageCounter++;
+		const messageId = `msg-${next}-${Date.now()}`;
+		const clientEventId = `message-${next}-${Date.now()}`;
+		$("messageId").value = messageId;
+		$("messageClientEventId").value = clientEventId;
+		return {
 			type: "MESSAGE_SENT",
 			senderId: $("senderId").value.trim(),
-			clientEventId: $("messageClientEventId").value.trim(),
+			clientEventId,
 			payload: {
 				messageId: $("messageId").value.trim(),
 				content: $("messageContent").value,
 			},
 		};
+	}
+
+	function clonePayload(payload) {
+		return JSON.parse(JSON.stringify(payload));
+	}
+
+	async function appendRestMessage() {
+		const currentSessionId = sessionId();
+		if (!currentSessionId) {
+			return;
+		}
+		const payload = buildMessagePayload();
+		state.lastRestMessagePayload = clonePayload(payload);
+		await requestJson("POST", `/sessions/${currentSessionId}/events`, payload, "REST 새 메시지 전송");
+	}
+
+	async function resendRestMessage() {
+		const currentSessionId = sessionId();
+		if (!currentSessionId) {
+			return;
+		}
+		if (!state.lastRestMessagePayload) {
+			log("error", "먼저 REST 새 메시지를 한 번 전송하세요");
+			return;
+		}
+		await requestJson("POST", `/sessions/${currentSessionId}/events`, clonePayload(state.lastRestMessagePayload), "REST 직전 메시지 재전송");
+	}
+
+	function sendMessage() {
+		const currentSessionId = sessionId();
+		if (!currentSessionId) {
+			return;
+		}
+		const payload = buildMessagePayload();
+		state.lastWsMessagePayload = clonePayload(payload);
 		sendFrame("SEND", {
-			destination: `/app/sessions/${sessionId}/messages`,
+			destination: `/app/sessions/${currentSessionId}/messages`,
 			"content-type": "application/json",
-		}, JSON.stringify(payload));
+		}, JSON.stringify(payload), "WebSocket 새 메시지 전송");
+	}
+
+	function resendMessage() {
+		const currentSessionId = sessionId();
+		if (!currentSessionId) {
+			return;
+		}
+		if (!state.lastWsMessagePayload) {
+			log("error", "먼저 WebSocket으로 새 메시지를 한 번 전송하세요");
+			return;
+		}
+		sendFrame("SEND", {
+			destination: `/app/sessions/${currentSessionId}/messages`,
+			"content-type": "application/json",
+		}, JSON.stringify(state.lastWsMessagePayload), "WebSocket 직전 메시지 재전송");
 	}
 
 	function sendPresence(type) {
-		const sessionId = $("sessionId").value.trim();
+		const currentSessionId = sessionId();
+		if (!currentSessionId) {
+			return;
+		}
 		const userId = $("senderId").value.trim();
 		const suffix = type.toLowerCase().replace("_", "-");
 		const payload = {
@@ -509,9 +685,96 @@
 			payload: {},
 		};
 		sendFrame("SEND", {
-			destination: `/app/sessions/${sessionId}/events`,
+			destination: `/app/sessions/${currentSessionId}/events`,
 			"content-type": "application/json",
-		}, JSON.stringify(payload));
+		}, JSON.stringify(payload), `${presenceLabel(type)} 이벤트 전송`);
+	}
+
+	function presenceLabel(type) {
+		return type === "DISCONNECTED" ? "끊김 처리" : "재연결 처리";
+	}
+
+	async function listEvents(afterSequence) {
+		const currentSessionId = sessionId();
+		if (!currentSessionId) {
+			return;
+		}
+		const query = afterSequence ? `?afterSequence=${encodeURIComponent(afterSequence)}&limit=100` : "?limit=100";
+		await requestJson("GET", `/sessions/${currentSessionId}/events${query}`, null, "이벤트 조회");
+	}
+
+	async function createSnapshot() {
+		const currentSessionId = sessionId();
+		if (!currentSessionId) {
+			return;
+		}
+		await requestJson("POST", `/sessions/${currentSessionId}/snapshots`, {}, "스냅샷 생성/재호출");
+	}
+
+	async function restoreTimeline() {
+		const currentSessionId = sessionId();
+		if (!currentSessionId) {
+			return;
+		}
+		const at = encodeURIComponent($("timelineAt").value.trim());
+		const limit = encodeURIComponent($("messageLimit").value.trim() || "100");
+		await requestJson("GET", `/sessions/${currentSessionId}/timeline?at=${at}&messageLimit=${limit}`, null, "타임라인 상태 복원");
+	}
+
+	async function leaveSession() {
+		const currentSessionId = sessionId();
+		if (!currentSessionId) {
+			return;
+		}
+		const userId = $("senderId").value.trim();
+		await requestJson("POST", `/sessions/${currentSessionId}/leave`, {
+			userId,
+			clientEventId: `leave-${userId}-${Date.now()}`,
+		}, "퇴장");
+	}
+
+	async function endSession() {
+		const currentSessionId = sessionId();
+		if (!currentSessionId) {
+			return;
+		}
+		const userId = $("senderId").value.trim();
+		await requestJson("POST", `/sessions/${currentSessionId}/end`, {
+			endedBy: userId,
+			clientEventId: `end-${currentSessionId}-001`,
+		}, "세션 종료");
+	}
+
+	async function sendAfterEnd() {
+		const currentSessionId = sessionId();
+		if (!currentSessionId) {
+			return;
+		}
+		const userId = $("senderId").value.trim();
+		const endResult = await requestJson("POST", `/sessions/${currentSessionId}/end`, {
+			endedBy: userId,
+			clientEventId: `end-${currentSessionId}-reject-check`,
+		}, "거절 확인용 세션 종료");
+		if (!endResult.response.ok && endResult.body?.code !== "SESSION_COMPLETED") {
+			log("error", "세션 종료가 확인되지 않아 메시지 거절 검증을 중단했습니다");
+			return;
+		}
+		await requestJson("POST", `/sessions/${currentSessionId}/events`, buildRejectCheckMessagePayload(), "종료 후 메시지 거절 확인");
+	}
+
+	function buildRejectCheckMessagePayload() {
+		const next = state.messageCounter++;
+		const messageId = `reject-check-${next}-${Date.now()}`;
+		const clientEventId = `reject-check-message-${next}-${Date.now()}`;
+		return {
+			type: "MESSAGE_SENT",
+			senderId: $("senderId").value.trim(),
+			clientEventId,
+			payload: {
+				messageId,
+				content: "종료 후 메시지 거절 검증",
+			},
+		};
 	}
 
 	$("createSession").addEventListener("click", createSession);
@@ -519,11 +782,22 @@
 	$("connect").addEventListener("click", connect);
 	$("disconnect").addEventListener("click", disconnect);
 	$("subscribe").addEventListener("click", subscribe);
+	$("sendRestMessage").addEventListener("click", appendRestMessage);
+	$("sendRestDuplicate").addEventListener("click", resendRestMessage);
 	$("sendMessage").addEventListener("click", sendMessage);
-	$("sendDuplicate").addEventListener("click", sendMessage);
+	$("sendDuplicate").addEventListener("click", resendMessage);
+	$("listEvents").addEventListener("click", () => listEvents(null));
+	$("listEventsAfter").addEventListener("click", () => listEvents($("afterSequence").value.trim()));
+	$("createSnapshot").addEventListener("click", createSnapshot);
+	$("restoreTimeline").addEventListener("click", restoreTimeline);
 	$("sendDisconnected").addEventListener("click", () => sendPresence("DISCONNECTED"));
 	$("sendReconnected").addEventListener("click", () => sendPresence("RECONNECTED"));
+	$("leaveSession").addEventListener("click", leaveSession);
+	$("endSession").addEventListener("click", endSession);
+	$("sendAfterEnd").addEventListener("click", sendAfterEnd);
 	$("clearLog").addEventListener("click", () => $("log").replaceChildren());
+	$("scrollTop").addEventListener("click", scrollToPageTop);
+	$("scrollLatest").addEventListener("click", scrollToLatestLog);
 </script>
 </body>
 </html>

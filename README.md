@@ -87,9 +87,11 @@ curl http://localhost:8080/actuator/health
 - [Operations](docs/operations.md)
 - [Async Projection](docs/async-projection.md)
 - [Load Test](docs/load-test.md)
+- [AWS EC2 Temporary Deploy](docs/aws-ec2-deploy.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [WebSocket](docs/websocket.md)
 - [Manual Verification Checklist](docs/manual-test-checklist.md)
+- [Submission Checklist](docs/submission-checklist.md)
 
 ## Verification Status
 
@@ -121,9 +123,3 @@ curl http://localhost:8080/actuator/health
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\load-test.ps1 -BaseUrl http://localhost:8080 -SessionCount 5 -MessagesPerSession 20
 ```
-
-## Security
-
-- `.env`, `.env.*`, key/pem/jks 파일은 커밋하지 않습니다.
-- 공개 가능한 환경 변수 예시는 `.env.example`만 사용합니다.
-- 로컬 기획 문서는 `planning-private/`에 두고 `.gitignore`로 제외합니다.

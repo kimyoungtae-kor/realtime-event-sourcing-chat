@@ -31,8 +31,8 @@ public class GlobalExceptionHandler {
 			.getFieldErrors()
 			.stream()
 			.findFirst()
-			.map(error -> error.getField() + " " + error.getDefaultMessage())
-			.orElse("Request validation failed");
+			.map(error -> error.getField() + " 값이 올바르지 않습니다")
+			.orElse("요청 값 검증에 실패했습니다");
 		return ResponseEntity.badRequest()
 			.body(new ErrorResponse("VALIDATION_FAILED", message, now()));
 	}
@@ -40,13 +40,13 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(ConstraintViolationException.class)
 	public ResponseEntity<ErrorResponse> handleConstraintViolation(ConstraintViolationException exception) {
 		return ResponseEntity.badRequest()
-			.body(new ErrorResponse("VALIDATION_FAILED", exception.getMessage(), now()));
+			.body(new ErrorResponse("VALIDATION_FAILED", "요청 값 검증에 실패했습니다", now()));
 	}
 
 	@ExceptionHandler(IllegalArgumentException.class)
 	public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException exception) {
 		return ResponseEntity.badRequest()
-			.body(new ErrorResponse("BAD_REQUEST", exception.getMessage(), now()));
+			.body(new ErrorResponse("BAD_REQUEST", "잘못된 요청입니다", now()));
 	}
 
 	@ExceptionHandler(MethodArgumentTypeMismatchException.class)
@@ -55,7 +55,7 @@ public class GlobalExceptionHandler {
 		return ResponseEntity.badRequest()
 			.body(new ErrorResponse(
 				"INVALID_REQUEST_PARAMETER",
-				"Invalid request parameter: " + name,
+				"요청 파라미터가 올바르지 않습니다: " + name,
 				now()
 			));
 	}
@@ -65,7 +65,7 @@ public class GlobalExceptionHandler {
 		return ResponseEntity.badRequest()
 			.body(new ErrorResponse(
 				"INVALID_REQUEST_PARAMETER",
-				"Invalid request parameter format",
+				"요청 파라미터 형식이 올바르지 않습니다",
 				now()
 			));
 	}
@@ -75,7 +75,7 @@ public class GlobalExceptionHandler {
 		return ResponseEntity.badRequest()
 			.body(new ErrorResponse(
 				"MISSING_REQUEST_PARAMETER",
-				"Missing request parameter: " + exception.getParameterName(),
+				"필수 요청 파라미터가 없습니다: " + exception.getParameterName(),
 				now()
 			));
 	}
@@ -83,19 +83,19 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(HttpMessageNotReadableException.class)
 	public ResponseEntity<ErrorResponse> handleNotReadable(HttpMessageNotReadableException exception) {
 		return ResponseEntity.badRequest()
-			.body(new ErrorResponse("INVALID_REQUEST_BODY", "Request body is malformed", now()));
+			.body(new ErrorResponse("INVALID_REQUEST_BODY", "요청 본문 형식이 올바르지 않습니다", now()));
 	}
 
 	@ExceptionHandler(NoResourceFoundException.class)
 	public ResponseEntity<ErrorResponse> handleNoResource(NoResourceFoundException exception) {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND)
-			.body(new ErrorResponse("RESOURCE_NOT_FOUND", "Resource not found", now()));
+			.body(new ErrorResponse("RESOURCE_NOT_FOUND", "리소스를 찾을 수 없습니다", now()));
 	}
 
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ErrorResponse> handleUnexpected(Exception exception) {
 		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-			.body(new ErrorResponse("INTERNAL_SERVER_ERROR", "Unexpected server error", now()));
+			.body(new ErrorResponse("INTERNAL_SERVER_ERROR", "예상하지 못한 서버 오류가 발생했습니다", now()));
 	}
 
 	private OffsetDateTime now() {

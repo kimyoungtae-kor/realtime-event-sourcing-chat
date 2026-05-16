@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="ko">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>실시간 이벤트 소싱 채팅</title>
+	<style>
+		:root {
+			color-scheme: light;
+			--bg: #f7f8fb;
+			--panel: #ffffff;
+			--text: #1f2937;
+			--muted: #667085;
+			--line: #d8dee8;
+			--accent: #0f766e;
+			--soft: #eef7f5;
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		body {
+			margin: 0;
+			background: var(--bg);
+			color: var(--text);
+			font-family: Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+			font-size: 14px;
+			letter-spacing: 0;
+		}
+
+		main {
+			width: min(1040px, calc(100vw - 32px));
+			margin: 32px auto;
+		}
+
+		header {
+			margin-bottom: 24px;
+		}
+
+		h1 {
+			margin: 0 0 8px;
+			font-size: 28px;
+			line-height: 1.25;
+		}
+
+		p {
+			margin: 0;
+			color: var(--muted);
+			line-height: 1.6;
+		}
+
+		.grid {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 16px;
+		}
+
+		.panel {
+			background: var(--panel);
+			border: 1px solid var(--line);
+			border-radius: 8px;
+			padding: 18px;
+		}
+
+		h2 {
+			margin: 0 0 12px;
+			font-size: 17px;
+			line-height: 1.35;
+		}
+
+		.links {
+			display: grid;
+			gap: 10px;
+		}
+
+		a.button {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			gap: 12px;
+			min-height: 42px;
+			padding: 10px 12px;
+			border: 1px solid var(--line);
+			border-radius: 6px;
+			color: var(--text);
+			text-decoration: none;
+			background: #fff;
+		}
+
+		a.button.primary {
+			border-color: var(--accent);
+			background: var(--accent);
+			color: #fff;
+		}
+
+		a.button:hover {
+			background: var(--soft);
+		}
+
+		a.button.primary:hover {
+			background: #0b5f59;
+		}
+
+		.badge {
+			display: inline-flex;
+			align-items: center;
+			min-height: 24px;
+			padding: 3px 8px;
+			border-radius: 999px;
+			background: var(--soft);
+			color: var(--accent);
+			font-size: 12px;
+			font-weight: 700;
+		}
+
+		ul {
+			margin: 0;
+			padding-left: 18px;
+			color: var(--muted);
+			line-height: 1.75;
+		}
+
+		code {
+			padding: 2px 5px;
+			border-radius: 4px;
+			background: #eef2f6;
+			color: #344054;
+		}
+
+		.full {
+			grid-column: 1 / -1;
+		}
+
+		@media (max-width: 760px) {
+			main {
+				width: min(100vw - 20px, 680px);
+				margin: 20px auto;
+			}
+
+			.grid {
+				grid-template-columns: 1fr;
+			}
+		}
+	</style>
+</head>
+<body>
+<main>
+	<header>
+		<h1>실시간 이벤트 소싱 채팅</h1>
+		<p>백엔드 과제 검증을 위한 임시 진입 페이지입니다. REST API, WebSocket, Snapshot 기반 복원을 확인할 수 있습니다.</p>
+	</header>
+
+	<div class="grid">
+		<section class="panel">
+			<h2>바로 확인하기</h2>
+			<div class="links">
+				<a class="button primary" href="/ws-test.html">
+					<span>통합 수동 검증 페이지</span>
+					<span>열기</span>
+				</a>
+				<a class="button" href="/actuator/health">
+					<span>헬스 체크</span>
+					<span>JSON</span>
+				</a>
+				<a class="button" href="https://github.com/kimyoungtae-kor/realtime-event-sourcing-chat">
+					<span>GitHub 저장소</span>
+					<span>GitHub</span>
+				</a>
+			</div>
+		</section>
+
+		<section class="panel">
+			<h2>구현 범위</h2>
+			<ul>
+				<li>Spring WebSocket + STOMP 실시간 메시지 송수신</li>
+				<li>입장 / 퇴장 / 끊김 / 재연결 presence 처리</li>
+				<li><code>clientEventId</code> 기반 중복 이벤트 방지</li>
+				<li><code>serverSequence</code> 기준 deterministic replay</li>
+				<li>Snapshot + delta replay 기반 timeline 복원</li>
+			</ul>
+		</section>
+
+		<section class="panel">
+			<h2>주요 API</h2>
+			<ul>
+				<li><code>POST /sessions</code></li>
+				<li><code>POST /sessions/{id}/join</code></li>
+				<li><code>POST /sessions/{id}/events</code></li>
+				<li><code>GET /sessions/{id}/timeline?at=...</code></li>
+				<li><code>POST /sessions/{id}/snapshots</code></li>
+			</ul>
+		</section>
+
+		<section class="panel">
+			<h2>검증 기록</h2>
+			<ul>
+				<li>REST 수동 검증</li>
+				<li>WebSocket 수동 검증 페이지</li>
+				<li>H2 기반 통합 테스트</li>
+				<li>로컬 smoke 부하 테스트: 125 requests, failed 0</li>
+			</ul>
+		</section>
+
+		<section class="panel full">
+			<h2>안내</h2>
+			<p>
+				이 페이지는 제품 UI가 아니라 과제 확인용입니다.
+				상세 설계 문서, OpenAPI, ERD, DDL, 쿼리/인덱스 근거는 GitHub 저장소의 <code>docs/</code>와 <code>openapi/</code>에 있습니다.
+			</p>
+		</section>
+	</div>
+</main>
+</body>
+</html>

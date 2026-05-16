@@ -98,7 +98,7 @@ public class EventController {
 			throw new ApiException(
 				HttpStatus.BAD_REQUEST,
 				"UNSUPPORTED_EVENT_TYPE",
-				"Use dedicated session endpoints for " + type + " events"
+				type + " 이벤트는 전용 세션 API를 사용해야 합니다"
 			);
 		}
 	}

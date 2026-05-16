@@ -53,10 +53,10 @@ public class TimelineReplayService {
 	@Transactional(readOnly = true)
 	public TimelineResponse restore(String sessionPublicId, OffsetDateTime at, int messageLimit) {
 		if (at == null) {
-			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_TIMELINE_REQUEST", "at is required");
+			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_TIMELINE_REQUEST", "복원 기준 시점(at)이 필요합니다");
 		}
 		SessionEntity session = sessionRepository.findByPublicId(sessionPublicId)
-			.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "SESSION_NOT_FOUND", "Session not found"));
+			.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "SESSION_NOT_FOUND", "세션을 찾을 수 없습니다"));
 		LocalDateTime atUtc = UtcDateTimes.toUtcLocalDateTime(at);
 		SessionSnapshotEntity snapshot = snapshotRepository
 			.findFirstBySessionIdAndSnapshotAtLessThanEqualOrderByServerSequenceDesc(session.getId(), atUtc)
@@ -104,9 +104,9 @@ public class TimelineReplayService {
 	@Transactional
 	public SnapshotResponse createSnapshot(String sessionPublicId) {
 		SessionEntity session = sessionRepository.findByPublicId(sessionPublicId)
-			.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "SESSION_NOT_FOUND", "Session not found"));
+			.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "SESSION_NOT_FOUND", "세션을 찾을 수 없습니다"));
 		SessionEventEntity latestEvent = eventRepository.findFirstBySessionIdOrderByServerSequenceDesc(session.getId())
-			.orElseThrow(() -> new ApiException(HttpStatus.CONFLICT, "SNAPSHOT_NOT_AVAILABLE", "No event exists for session"));
+			.orElseThrow(() -> new ApiException(HttpStatus.CONFLICT, "SNAPSHOT_NOT_AVAILABLE", "스냅샷을 만들 이벤트가 없습니다"));
 
 		return snapshotRepository.findBySessionIdAndServerSequence(session.getId(), latestEvent.getServerSequence())
 			.map(existing -> toSnapshotResponse(existing, true))
