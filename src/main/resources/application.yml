@@ -16,7 +16,7 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
-  logging:
+logging:
   level:
     root: info
     org.springframework: warn

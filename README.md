@@ -57,8 +57,9 @@ curl http://localhost:8080/actuator/health
 - `serverSequence` 기반 일관된 이벤트 정렬
 - 특정 시점 timeline replay API
 - REST API 수동 검증 기록
+- WebSocket STOMP message/presence event 수신 및 topic broadcast
 
-현재 WebSocket endpoint `/ws` 설정은 준비되어 있지만, message controller와 topic broadcast는 다음 단계 작업입니다.
+WebSocket 수동 검증은 아직 남아 있습니다.
 
 ## API Summary
 
@@ -83,6 +84,7 @@ curl http://localhost:8080/actuator/health
 - [Queries](docs/queries.md)
 - [Operations](docs/operations.md)
 - [Troubleshooting](docs/troubleshooting.md)
+- [WebSocket](docs/websocket.md)
 - [Manual Verification Checklist](docs/manual-test-checklist.md)
 
 ## Verification Status

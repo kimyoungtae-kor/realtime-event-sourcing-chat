@@ -49,7 +49,16 @@ GET /sessions/{id}/timeline?at=...
   -> in-memory replay
 ```
 
-WebSocket endpoint `/ws`는 골격 설정이 되어 있으며, 다음 단계에서 REST event append service와 연결한다.
+WebSocket endpoint `/ws`는 REST event append service와 연결되어 있다.
+
+```text
+STOMP /app/sessions/{id}/messages
+  -> SessionEventService.appendEvent()
+  -> MySQL event store
+  -> /topic/sessions/{id}
+```
+
+실시간 메시지와 REST 이벤트 수집은 같은 저장 경로를 사용한다.
 
 ## Scaling Direction
 
