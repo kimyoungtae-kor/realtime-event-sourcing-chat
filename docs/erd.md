@@ -1,60 +1,22 @@
 # ERD
 
-```mermaid
-erDiagram
-    sessions ||--o{ session_participants : has
-    sessions ||--o{ session_events : records
-    sessions ||--o{ session_snapshots : snapshots
+![Session Event Sourcing ERD](session-event-sourcing-erd.png)
 
-    sessions {
-        bigint id PK
-        char public_id UK
-        varchar status
-        bigint next_sequence
-        datetime created_at
-        datetime updated_at
-        datetime ended_at
-    }
+## Table Relationships
 
-    session_participants {
-        bigint id PK
-        bigint session_id FK
-        varchar user_id
-        varchar display_name
-        varchar state
-        datetime joined_at
-        datetime left_at
-        datetime last_seen_at
-    }
+- `sessions` 1:N `session_participants`
+- `sessions` 1:N `session_events`
+- `sessions` 1:N `session_snapshots`
 
-    session_events {
-        bigint id PK
-        bigint session_id FK
-        bigint server_sequence
-        varchar type
-        varchar sender_id
-        varchar client_event_id
-        datetime client_sent_at
-        datetime server_received_at
-        json payload_json
-    }
+## Notes
 
-    session_snapshots {
-        bigint id PK
-        bigint session_id FK
-        bigint server_sequence
-        datetime snapshot_at
-        json state_json
-        datetime created_at
-    }
-```
-
-## Design Notes
-
-- `public_id`는 API 외부 노출용 UUID다.
-- `session_events.payload_json`은 이벤트 타입별 payload 확장을 위해 JSON으로 둔다.
-- 중복 방지는 `(session_id, sender_id, client_event_id)` unique key로 처리한다.
-- replay 정렬은 `(session_id, server_sequence)`를 기준으로 한다.
+- `sessions.public_id`는 API 외부 노출용 UUID다.
+- `session_events`가 append-only event store이며 상태 복원의 source of truth다.
+- `session_participants`는 join, leave, disconnect, reconnect 결과를 빠르게 보기 위한 current-state projection이다.
+- `session_snapshots`는 timeline 복원 비용을 줄이기 위한 snapshot 저장소다.
+- 별도 `users` 테이블은 두지 않고, `user_id`와 `sender_id`는 외부 인증 시스템의 사용자 식별자로 가정한다.
+- 중복 방지는 `session_events`의 `(session_id, sender_id, client_event_id)` unique key로 처리한다.
+- replay 정렬은 `server_sequence`를 기준으로 한다.
 
 ## Normalization And JSON Trade-Off
 

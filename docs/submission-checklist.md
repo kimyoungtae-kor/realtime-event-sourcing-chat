@@ -76,18 +76,9 @@
 
 ## ERD 확인 방법
 
-`docs/erd.md`는 Mermaid ER diagram으로 작성되어 있다.
+`docs/erd.md`에 dbdiagram.io에서 생성한 ERD 이미지를 첨부했다.
 
 확인 방법:
 
-1. GitHub에서 `docs/erd.md`를 열면 Mermaid ERD가 자동 렌더링된다.
-2. VS Code에서는 Markdown Preview Mermaid Support 확장을 설치하거나 GitHub 웹 화면에서 확인한다.
-3. 필요하면 Mermaid Live Editor에 코드 블록 내용을 붙여 PNG/SVG로 export한다.
-
-Mermaid Live Editor:
-
-```text
-https://mermaid.live/
-```
-
-현재 제출은 `docs/erd.md` 텍스트 자체가 ERD 원본이므로 별도 이미지 파일이 없어도 된다.
+1. GitHub에서 `docs/erd.md`를 열면 ERD 이미지와 설계 메모를 함께 확인할 수 있다.
+2. 원본 이미지 파일은 `docs/session-event-sourcing-erd.png`다.
